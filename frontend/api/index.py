@@ -7,10 +7,14 @@ from supabase import create_client
 app = FastAPI()
 
 
+def _clean(val: str) -> str:
+    return val.lstrip('﻿').strip()
+
+
 def get_supabase():
     return create_client(
-        os.environ["SUPABASE_URL"],
-        os.environ["SUPABASE_SERVICE_KEY"],
+        _clean(os.environ["SUPABASE_URL"]),
+        _clean(os.environ["SUPABASE_SERVICE_KEY"]),
     )
 
 
