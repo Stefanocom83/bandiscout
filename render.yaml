@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: bandiscout-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_NOTIFICATIONS
+        sync: false
+      - key: CBS_LAT
+        value: "45.6952"
+      - key: CBS_LNG
+        value: "8.9969"
+      - key: DEFAULT_RADIUS_KM
+        value: "50"
+      - key: DASHBOARD_URL
+        value: "https://bandiscout-frontend.vercel.app"

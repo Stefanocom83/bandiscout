@@ -1,0 +1,38 @@
+name: Pipeline Giornaliera
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # 06:00 CET (05:00 UTC)
+  workflow_dispatch:      # trigger manuale dalla UI GitHub
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Installa dipendenze
+        run: pip install -r backend/requirements.txt
+
+      - name: Esegui pipeline
+        working-directory: backend
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_NOTIFICATIONS: ${{ secrets.EMAIL_NOTIFICATIONS }}
+          CBS_LAT: "45.6952"
+          CBS_LNG: "8.9969"
+          DEFAULT_RADIUS_KM: "50"
+          DASHBOARD_URL: "https://bandiscout-frontend.vercel.app"
+        run: python -c "import asyncio; from orchestrator import run_pipeline; asyncio.run(run_pipeline())"

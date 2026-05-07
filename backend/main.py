@@ -1,24 +1,14 @@
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 from typing import Optional
 import logging
-from scheduler import init_scheduler, scheduler
 from orchestrator import run_pipeline
 from services.supabase_client import get_supabase, get_config, set_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s — %(message)s")
 logger = logging.getLogger(__name__)
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    init_scheduler()
-    yield
-    scheduler.shutdown()
-
-
-app = FastAPI(title="BandiScout API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="BandiScout API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
