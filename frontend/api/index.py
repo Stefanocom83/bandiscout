@@ -23,11 +23,24 @@ def health():
 def debug_env():
     url = os.environ.get("SUPABASE_URL", "NOT_SET")
     key = os.environ.get("SUPABASE_SERVICE_KEY", "NOT_SET")
+    try:
+        sb = get_supabase()
+        result = sb.table("bandi").select("id", count="exact").execute()
+        supabase_ok = True
+        count = result.count
+        error = None
+    except Exception as e:
+        supabase_ok = False
+        count = None
+        error = str(e)
     return {
         "url_set": url != "NOT_SET",
         "url_prefix": url[:20] if url != "NOT_SET" else "NOT_SET",
         "key_set": key != "NOT_SET",
         "key_len": len(key) if key != "NOT_SET" else 0,
+        "supabase_ok": supabase_ok,
+        "count": count,
+        "error": error,
     }
 
 
