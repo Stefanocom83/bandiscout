@@ -19,6 +19,18 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/debug-env")
+def debug_env():
+    url = os.environ.get("SUPABASE_URL", "NOT_SET")
+    key = os.environ.get("SUPABASE_SERVICE_KEY", "NOT_SET")
+    return {
+        "url_set": url != "NOT_SET",
+        "url_prefix": url[:20] if url != "NOT_SET" else "NOT_SET",
+        "key_set": key != "NOT_SET",
+        "key_len": len(key) if key != "NOT_SET" else 0,
+    }
+
+
 @app.get("/api/bandi")
 def get_bandi(
     semaforo: Optional[str] = Query(None),
