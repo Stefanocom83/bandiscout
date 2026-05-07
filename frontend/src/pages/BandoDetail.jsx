@@ -110,6 +110,37 @@ export default function BandoDetail() {
           </div>
         </div>
 
+        {/* Checklist documenti */}
+        {req.checklist_documenti?.length > 0 && (
+          <div className="bg-white rounded border border-gray-200 p-6">
+            <h3 className="font-mono text-xs uppercase tracking-widest text-gray-500 mb-1">Checklist documenti</h3>
+            <p className="text-xs text-gray-400 font-sans mb-4">Documenti necessari per partecipare — basata su D.Lgs. 36/2023</p>
+            {['amministrativa', 'tecnica', 'economica'].map(busta => {
+              const docs = req.checklist_documenti.filter(d => d.busta === busta)
+              if (!docs.length) return null
+              return (
+                <div key={busta} className="mb-4">
+                  <div className="font-mono text-xs text-gray-400 uppercase mb-2">Busta {busta}</div>
+                  <div className="space-y-1">
+                    {docs.map((d, i) => (
+                      <div key={i} className="flex items-start gap-3 text-sm py-1 border-b border-gray-50">
+                        <span className={`mt-0.5 text-base ${d.obbligatorio ? 'text-verde' : 'text-giallo'}`}>
+                          {d.obbligatorio ? '✓' : '○'}
+                        </span>
+                        <div className="flex-1">
+                          <span className="font-sans font-medium">{d.documento}</span>
+                          {d.nota && <span className="text-gray-400 font-sans ml-2 text-xs">{d.nota}</span>}
+                        </div>
+                        {!d.obbligatorio && <Tag color="gray">facoltativo</Tag>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* Procedura e difficoltà */}
         <div className="bg-white rounded border border-gray-200 p-6">
           <h3 className="font-mono text-xs uppercase tracking-widest text-gray-500 mb-4">Procedura</h3>
