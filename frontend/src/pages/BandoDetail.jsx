@@ -110,14 +110,56 @@ export default function BandoDetail() {
           </div>
         </div>
 
+        {/* Procedura e difficoltà */}
+        <div className="bg-white rounded border border-gray-200 p-6">
+          <h3 className="font-mono text-xs uppercase tracking-widest text-gray-500 mb-4">Procedura</h3>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="text-xs text-gray-500 font-sans">Tipo procedura</div>
+              <div className="font-mono mt-1 capitalize">{req.tipo_procedura?.replace('_', ' ') || '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-sans">Tipo lavoro</div>
+              <div className="font-mono mt-1 capitalize">{req.tipo_lavoro?.replace('+', ' + ') || '—'}</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-sans">Difficoltà</div>
+              <div className="font-mono mt-1">
+                {req.difficolta
+                  ? <><span className={req.difficolta === 'bassa' ? 'text-verde' : req.difficolta === 'media' ? 'text-giallo' : 'text-rosso'}>{req.difficolta.toUpperCase()}</span>{req.difficolta_motivo && <span className="text-gray-400 ml-2 font-sans normal-case">— {req.difficolta_motivo}</span>}</>
+                  : '—'
+                }
+              </div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-sans">Azione consigliata</div>
+              <div className="font-mono mt-1 capitalize">{req.azione_consigliata || '—'}</div>
+            </div>
+            {req.materiali_richiesti?.length > 0 && (
+              <div className="col-span-2">
+                <div className="text-xs text-gray-500 font-sans mb-1">Materiali richiesti</div>
+                <div className="flex flex-wrap gap-1">{req.materiali_richiesti.map(m => <Tag key={m} color="gray">{m}</Tag>)}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Requisiti */}
         <div className="bg-white rounded border border-gray-200 p-6">
           <h3 className="font-mono text-xs uppercase tracking-widest text-gray-500 mb-4">Requisiti</h3>
           <table className="w-full text-sm">
             <tbody className="divide-y divide-gray-100">
-              <tr><td className="py-2 text-gray-500 font-sans w-48">SOA richiesta</td><td className="py-2 font-mono">{req.soa_richiesta ? `✓ Sì — ${req.soa_categoria || 'N/D'}` : '✗ No'}</td></tr>
+              <tr>
+                <td className="py-2 text-gray-500 font-sans w-48">SOA richiesta</td>
+                <td className="py-2 font-mono">
+                  {req.soa_richiesta
+                    ? `✓ ${req.soa_categoria || 'N/D'}${req.soa_classifica && req.soa_classifica !== 'non_richiesta' ? ` class. ${req.soa_classifica}` : ''}`
+                    : '✗ No'}
+                </td>
+              </tr>
               <tr><td className="py-2 text-gray-500 font-sans">Fatturato minimo</td><td className="py-2 font-mono">{fmt(req.fatturato_minimo)}</td></tr>
               <tr><td className="py-2 text-gray-500 font-sans">CAM obbligatori</td><td className="py-2 font-mono">{req.cam_obbligatori ? `✓ Sì${req.cam_note ? ` — ${req.cam_note}` : ''}` : '✗ No'}</td></tr>
+              <tr><td className="py-2 text-gray-500 font-sans">Subappalto ammesso</td><td className="py-2 font-mono">{req.subappalto_ammesso == null ? '—' : req.subappalto_ammesso ? '✓ Sì' : '✗ No'}</td></tr>
               <tr>
                 <td className="py-2 text-gray-500 font-sans">Certificazioni</td>
                 <td className="py-2">
