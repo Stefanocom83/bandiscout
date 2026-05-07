@@ -35,7 +35,8 @@ def debug_env():
         error = str(e)
     return {
         "url_set": url != "NOT_SET",
-        "url_prefix": url[:20] if url != "NOT_SET" else "NOT_SET",
+        "url_len": len(url),
+        "url_repr": repr(url[:30]) if url != "NOT_SET" else "NOT_SET",
         "key_set": key != "NOT_SET",
         "key_len": len(key) if key != "NOT_SET" else 0,
         "supabase_ok": supabase_ok,
