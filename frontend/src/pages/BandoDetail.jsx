@@ -28,16 +28,18 @@ function RischioTag({ rischio }) {
   return <span className={`font-mono uppercase ${cls}`}>{rischio}</span>
 }
 
-function UploadZone({ label, hint, onFile, loading }) {
+function UploadZone({ label, hint, onFiles, loadingCount }) {
   const ref = useRef()
+  const busy = loadingCount > 0
   return (
     <div
-      onClick={() => !loading && ref.current.click()}
-      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${loading ? 'border-gray-200 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-accent hover:bg-accent/5'}`}
+      onClick={() => !busy && ref.current.click()}
+      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${busy ? 'border-gray-200 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-accent hover:bg-accent/5'}`}
     >
-      <input ref={ref} type="file" accept=".pdf" className="hidden" onChange={e => e.target.files[0] && onFile(e.target.files[0])} />
-      {loading
-        ? <div className="font-mono text-sm text-gray-400 animate-pulse">Analisi in corso…</div>
+      <input ref={ref} type="file" accept=".pdf" multiple className="hidden"
+        onChange={e => { if (e.target.files.length) { onFiles(Array.from(e.target.files)); e.target.value = '' } }} />
+      {busy
+        ? <div className="font-mono text-sm text-gray-400 animate-pulse">Analisi {loadingCount} file in corso…</div>
         : <>
             <div className="text-2xl mb-2">📄</div>
             <div className="font-sans font-medium text-sm text-gray-700">{label}</div>
@@ -53,30 +55,34 @@ export default function BandoDetail() {
   const nav = useNavigate()
   const [bando, setBando] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [analisi, setAnalisi] = useState(null)
-  const [analisiMio, setAnalisiMio] = useState(null)
-  const [loadingDoc, setLoadingDoc] = useState(false)
-  const [loadingMio, setLoadingMio] = useState(false)
-  const [erroreDoc, setErroreDoc] = useState(null)
-  const [erroreMio, setErroreMio] = useState(null)
+  const [analisi, setAnalisi] = useState([])
+  const [analisiMio, setAnalisiMio] = useState([])
+  const [loadingDoc, setLoadingDoc] = useState(0)
+  const [loadingMio, setLoadingMio] = useState(0)
 
-  async function uploadDoc(file, tipo) {
-    const setL = tipo === 'bando' ? setLoadingDoc : setLoadingMio
-    const setA = tipo === 'bando' ? setAnalisi : setAnalisiMio
-    const setE = tipo === 'bando' ? setErroreDoc : setErroreMio
-    setL(true); setE(null)
+  async function uploadSingle(file, tipo) {
     const fd = new FormData()
     fd.append('file', file)
     fd.append('tipo', tipo)
-    try {
-      const r = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/bandi/${id}/analizza-doc`, { method: 'POST', body: fd })
-      if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Errore server') }
-      const data = await r.json()
-      setA(data)
-    } catch (e) {
-      setE(e.message)
-    } finally {
-      setL(false)
+    const r = await fetch(`${import.meta.env.VITE_API_BASE || ''}/api/bandi/${id}/analizza-doc`, { method: 'POST', body: fd })
+    if (!r.ok) { const d = await r.json(); throw new Error(d.detail || 'Errore server') }
+    return r.json()
+  }
+
+  async function uploadFiles(files, tipo) {
+    const setL = tipo === 'bando' ? setLoadingDoc : setLoadingMio
+    const setA = tipo === 'bando' ? setAnalisi : setAnalisiMio
+    setL(files.length)
+    const results = []
+    for (const file of files) {
+      try {
+        const data = await uploadSingle(file, tipo)
+        results.push(data)
+      } catch (e) {
+        results.push({ nome_file: file.name, errore: e.message })
+      }
+      setL(prev => prev - 1)
+      setA(prev => [...prev, results[results.length - 1]])
     }
   }
 
@@ -258,115 +264,117 @@ export default function BandoDetail() {
         {/* Analisi documenti */}
         <div className="bg-white rounded border border-gray-200 p-6">
           <h3 className="font-mono text-xs uppercase tracking-widest text-gray-500 mb-1">Analisi documenti</h3>
-          <p className="text-xs text-gray-400 font-sans mb-5">Carica un PDF dal sito del bando oppure un tuo documento per verificarne la conformità</p>
+          <p className="text-xs text-gray-400 font-sans mb-5">Carica uno o più PDF dal sito del bando oppure i tuoi documenti per verificarne la conformità</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <div className="font-mono text-xs text-gray-500 uppercase mb-2">Documento del bando</div>
+              <div className="font-mono text-xs text-gray-500 uppercase mb-2">Documenti del bando</div>
               <UploadZone
                 label="Carica disciplinare / capitolato"
-                hint="PDF — prime 12 pagine analizzate"
-                loading={loadingDoc}
-                onFile={f => uploadDoc(f, 'bando')}
+                hint="Anche più PDF insieme — prime 12 pagine per file"
+                loadingCount={loadingDoc}
+                onFiles={files => uploadFiles(files, 'bando')}
               />
-              {erroreDoc && <p className="text-xs text-rosso font-sans mt-2">{erroreDoc}</p>}
             </div>
             <div>
-              <div className="font-mono text-xs text-gray-500 uppercase mb-2">Mio documento</div>
+              <div className="font-mono text-xs text-gray-500 uppercase mb-2">Miei documenti</div>
               <UploadZone
                 label="Carica DGUE / dichiarazione / offerta"
                 hint="Verifico conformità rispetto al bando"
-                loading={loadingMio}
-                onFile={f => uploadDoc(f, 'mio')}
+                loadingCount={loadingMio}
+                onFiles={files => uploadFiles(files, 'mio')}
               />
-              {erroreMio && <p className="text-xs text-rosso font-sans mt-2">{erroreMio}</p>}
             </div>
           </div>
 
-          {/* Risultato analisi bando */}
-          {analisi && (
-            <div className="mt-6 border-t border-gray-100 pt-5">
+          {/* Risultati analisi bando */}
+          {analisi.map((item, idx) => (
+            <div key={idx} className="mt-6 border-t border-gray-100 pt-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-xs text-gray-500 uppercase">Analisi: {analisi.nome_file}</span>
-                <span className="font-mono text-xs text-gray-400">{analisi.pagine_lette} pagine lette</span>
+                <span className="font-mono text-xs text-gray-500 uppercase">Analisi: {item.nome_file}</span>
+                {item.pagine_lette && <span className="font-mono text-xs text-gray-400">{item.pagine_lette} pagine lette</span>}
               </div>
-              <div className="space-y-3 text-sm">
-                {analisi.analisi.riassunto && (
-                  <p className="font-sans text-base leading-relaxed">{analisi.analisi.riassunto}</p>
-                )}
-                {analisi.analisi.requisiti_tecnici?.length > 0 && (
-                  <div>
-                    <div className="font-mono text-xs text-gray-400 uppercase mb-1">Requisiti tecnici</div>
-                    <ul className="space-y-0.5">{analisi.analisi.requisiti_tecnici.map((r, i) => <li key={i} className="font-sans text-sm text-gray-700 flex gap-2"><span className="text-verde">•</span>{r}</li>)}</ul>
+              {item.errore
+                ? <p className="text-xs text-rosso font-sans">{item.errore}</p>
+                : <div className="space-y-3 text-sm">
+                    {item.analisi?.riassunto && <p className="font-sans text-base leading-relaxed">{item.analisi.riassunto}</p>}
+                    {item.analisi?.requisiti_tecnici?.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-gray-400 uppercase mb-1">Requisiti tecnici</div>
+                        <ul className="space-y-0.5">{item.analisi.requisiti_tecnici.map((r, i) => <li key={i} className="font-sans text-sm text-gray-700 flex gap-2"><span className="text-verde">•</span>{r}</li>)}</ul>
+                      </div>
+                    )}
+                    {item.analisi?.requisiti_amministrativi?.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-gray-400 uppercase mb-1">Requisiti amministrativi</div>
+                        <ul className="space-y-0.5">{item.analisi.requisiti_amministrativi.map((r, i) => <li key={i} className="font-sans text-sm text-gray-700 flex gap-2"><span className="text-giallo">•</span>{r}</li>)}</ul>
+                      </div>
+                    )}
+                    {item.analisi?.scadenze?.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-gray-400 uppercase mb-1">Scadenze</div>
+                        <ul className="space-y-0.5">{item.analisi.scadenze.map((r, i) => <li key={i} className="font-sans text-sm text-gray-700 flex gap-2"><span className="text-accent">•</span>{r}</li>)}</ul>
+                      </div>
+                    )}
+                    {item.analisi?.alert_cbs?.length > 0 && (
+                      <div className="bg-giallo/5 border border-giallo/20 rounded p-3">
+                        <div className="font-mono text-xs text-giallo uppercase mb-1">Alert CBS</div>
+                        <ul className="space-y-0.5">{item.analisi.alert_cbs.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span>⚠</span>{r}</li>)}</ul>
+                      </div>
+                    )}
                   </div>
-                )}
-                {analisi.analisi.requisiti_amministrativi?.length > 0 && (
-                  <div>
-                    <div className="font-mono text-xs text-gray-400 uppercase mb-1">Requisiti amministrativi</div>
-                    <ul className="space-y-0.5">{analisi.analisi.requisiti_amministrativi.map((r, i) => <li key={i} className="font-sans text-sm text-gray-700 flex gap-2"><span className="text-giallo">•</span>{r}</li>)}</ul>
-                  </div>
-                )}
-                {analisi.analisi.scadenze?.length > 0 && (
-                  <div>
-                    <div className="font-mono text-xs text-gray-400 uppercase mb-1">Scadenze</div>
-                    <ul className="space-y-0.5">{analisi.analisi.scadenze.map((r, i) => <li key={i} className="font-sans text-sm text-gray-700 flex gap-2"><span className="text-accent">•</span>{r}</li>)}</ul>
-                  </div>
-                )}
-                {analisi.analisi.alert_cbs?.length > 0 && (
-                  <div className="bg-giallo/5 border border-giallo/20 rounded p-3">
-                    <div className="font-mono text-xs text-giallo uppercase mb-1">Alert CBS</div>
-                    <ul className="space-y-0.5">{analisi.analisi.alert_cbs.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span>⚠</span>{r}</li>)}</ul>
-                  </div>
-                )}
-              </div>
+              }
             </div>
-          )}
+          ))}
 
-          {/* Risultato analisi documento mio */}
-          {analisiMio && (
-            <div className="mt-6 border-t border-gray-100 pt-5">
+          {/* Risultati analisi documenti miei */}
+          {analisiMio.map((item, idx) => (
+            <div key={idx} className="mt-6 border-t border-gray-100 pt-5">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-xs text-gray-500 uppercase">Verifica: {analisiMio.nome_file}</span>
-                <span className={`font-mono text-xs px-2 py-0.5 rounded border ${analisiMio.analisi.conformita === 'conforme' ? 'text-verde border-verde/30 bg-verde/5' : analisiMio.analisi.conformita === 'parziale' ? 'text-giallo border-giallo/30 bg-giallo/5' : 'text-rosso border-rosso/30 bg-rosso/5'}`}>
-                  {analisiMio.analisi.conformita?.toUpperCase() || '—'}
-                </span>
-              </div>
-              <div className="space-y-3 text-sm">
-                {analisiMio.analisi.tipo_documento_rilevato && (
-                  <div className="font-mono text-xs text-gray-400">Tipo rilevato: {analisiMio.analisi.tipo_documento_rilevato.replace(/_/g, ' ')}</div>
-                )}
-                {analisiMio.analisi.elementi_ok?.length > 0 && (
-                  <div>
-                    <div className="font-mono text-xs text-gray-400 uppercase mb-1">OK</div>
-                    <ul className="space-y-0.5">{analisiMio.analisi.elementi_ok.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span className="text-verde">✓</span>{r}</li>)}</ul>
-                  </div>
-                )}
-                {analisiMio.analisi.elementi_mancanti?.length > 0 && (
-                  <div>
-                    <div className="font-mono text-xs text-gray-400 uppercase mb-1">Mancanti</div>
-                    <ul className="space-y-0.5">{analisiMio.analisi.elementi_mancanti.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span className="text-giallo">○</span>{r}</li>)}</ul>
-                  </div>
-                )}
-                {analisiMio.analisi.elementi_errati?.length > 0 && (
-                  <div>
-                    <div className="font-mono text-xs text-gray-400 uppercase mb-1">Da correggere</div>
-                    <ul className="space-y-0.5">{analisiMio.analisi.elementi_errati.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span className="text-rosso">✗</span>{r}</li>)}</ul>
-                  </div>
-                )}
-                {analisiMio.analisi.azioni_richieste?.length > 0 && (
-                  <div className="bg-rosso/5 border border-rosso/20 rounded p-3">
-                    <div className="font-mono text-xs text-rosso uppercase mb-1">Azioni richieste</div>
-                    <ol className="space-y-0.5 list-decimal list-inside">{analisiMio.analisi.azioni_richieste.map((r, i) => <li key={i} className="font-sans text-sm">{r}</li>)}</ol>
-                  </div>
-                )}
-                {analisiMio.analisi.rischio_esclusione && (
-                  <div className="flex items-center gap-2 text-xs font-sans text-gray-500">
-                    Rischio esclusione: <RischioTag rischio={analisiMio.analisi.rischio_esclusione} />
-                    {analisiMio.analisi.rischio_note && <span>— {analisiMio.analisi.rischio_note}</span>}
-                  </div>
+                <span className="font-mono text-xs text-gray-500 uppercase">Verifica: {item.nome_file}</span>
+                {item.analisi?.conformita && (
+                  <span className={`font-mono text-xs px-2 py-0.5 rounded border ${item.analisi.conformita === 'conforme' ? 'text-verde border-verde/30 bg-verde/5' : item.analisi.conformita === 'parziale' ? 'text-giallo border-giallo/30 bg-giallo/5' : 'text-rosso border-rosso/30 bg-rosso/5'}`}>
+                    {item.analisi.conformita.toUpperCase()}
+                  </span>
                 )}
               </div>
+              {item.errore
+                ? <p className="text-xs text-rosso font-sans">{item.errore}</p>
+                : <div className="space-y-3 text-sm">
+                    {item.analisi?.tipo_documento_rilevato && <div className="font-mono text-xs text-gray-400">Tipo: {item.analisi.tipo_documento_rilevato.replace(/_/g, ' ')}</div>}
+                    {item.analisi?.elementi_ok?.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-gray-400 uppercase mb-1">OK</div>
+                        <ul className="space-y-0.5">{item.analisi.elementi_ok.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span className="text-verde">✓</span>{r}</li>)}</ul>
+                      </div>
+                    )}
+                    {item.analisi?.elementi_mancanti?.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-gray-400 uppercase mb-1">Mancanti</div>
+                        <ul className="space-y-0.5">{item.analisi.elementi_mancanti.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span className="text-giallo">○</span>{r}</li>)}</ul>
+                      </div>
+                    )}
+                    {item.analisi?.elementi_errati?.length > 0 && (
+                      <div>
+                        <div className="font-mono text-xs text-gray-400 uppercase mb-1">Da correggere</div>
+                        <ul className="space-y-0.5">{item.analisi.elementi_errati.map((r, i) => <li key={i} className="font-sans text-sm flex gap-2"><span className="text-rosso">✗</span>{r}</li>)}</ul>
+                      </div>
+                    )}
+                    {item.analisi?.azioni_richieste?.length > 0 && (
+                      <div className="bg-rosso/5 border border-rosso/20 rounded p-3">
+                        <div className="font-mono text-xs text-rosso uppercase mb-1">Azioni richieste</div>
+                        <ol className="space-y-0.5 list-decimal list-inside">{item.analisi.azioni_richieste.map((r, i) => <li key={i} className="font-sans text-sm">{r}</li>)}</ol>
+                      </div>
+                    )}
+                    {item.analisi?.rischio_esclusione && (
+                      <div className="flex items-center gap-2 text-xs font-sans text-gray-500">
+                        Rischio esclusione: <RischioTag rischio={item.analisi.rischio_esclusione} />
+                        {item.analisi.rischio_note && <span>— {item.analisi.rischio_note}</span>}
+                      </div>
+                    )}
+                  </div>
+              }
             </div>
-          )}
+          ))}
         </div>
       </main>
     </div>
