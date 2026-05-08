@@ -122,18 +122,25 @@ async def analizza_documento(
     bando = res.data[0]
 
     # Estrai testo dal PDF (max 12 pagine per rispettare timeout Vercel)
-    from pypdf import PdfReader
-    content = await file.read()
-    reader = PdfReader(io.BytesIO(content))
-    testo = ""
-    for page in reader.pages[:12]:
-        testo += page.extract_text() or ""
-        if len(testo) > 7000:
-            break
-    testo = testo[:7000]
+    try:
+        from pypdf import PdfReader
+        content = await file.read()
+        reader = PdfReader(io.BytesIO(content))
+        num_pages = len(reader.pages)
+        testo = ""
+        for page in reader.pages[:12]:
+            try:
+                testo += page.extract_text() or ""
+            except Exception:
+                pass
+            if len(testo) > 7000:
+                break
+        testo = testo[:7000]
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Errore lettura PDF: {str(e)}")
 
     if not testo.strip():
-        raise HTTPException(status_code=422, detail="Impossibile estrarre testo dal PDF")
+        raise HTTPException(status_code=422, detail="Impossibile estrarre testo dal PDF (potrebbe essere scansionato o protetto)")
 
     # Costruisci prompt in base al tipo
     if tipo == "bando":
@@ -180,20 +187,25 @@ Verifica la conformità di questo documento rispetto al bando. Rispondi SOLO con
 }}"""
 
     # Chiama Claude Haiku (veloce, sotto timeout Vercel)
-    import anthropic
-    client = anthropic.Anthropic(api_key=_clean(os.environ["ANTHROPIC_API_KEY"]))
-    msg = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=1200,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    raw = msg.content[0].text
-    start, end = raw.find("{"), raw.rfind("}") + 1
-    analisi = json.loads(raw[start:end])
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=_clean(os.environ["ANTHROPIC_API_KEY"]))
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1200,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = msg.content[0].text
+        start, end = raw.find("{"), raw.rfind("}") + 1
+        analisi = json.loads(raw[start:end])
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="Risposta AI non valida, riprova")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errore analisi AI: {str(e)}")
 
     return {
         "analisi": analisi,
         "nome_file": file.filename,
-        "pagine_lette": min(12, len(reader.pages)),
+        "pagine_lette": min(12, num_pages),
         "tipo": tipo,
     }
