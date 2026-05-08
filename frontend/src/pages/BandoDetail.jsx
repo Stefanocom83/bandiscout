@@ -29,21 +29,36 @@ function RischioTag({ rischio }) {
 }
 
 function UploadZone({ label, hint, onFiles, loadingCount }) {
-  const ref = useRef()
+  const refFiles = useRef()
+  const refFolder = useRef()
   const busy = loadingCount > 0
+
+  function handleChange(e) {
+    const pdfs = Array.from(e.target.files).filter(f => f.name.toLowerCase().endsWith('.pdf'))
+    if (pdfs.length) onFiles(pdfs)
+    e.target.value = ''
+  }
+
   return (
-    <div
-      onClick={() => !busy && ref.current.click()}
-      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${busy ? 'border-gray-200 bg-gray-50 cursor-not-allowed' : 'border-gray-300 hover:border-accent hover:bg-accent/5'}`}
-    >
-      <input ref={ref} type="file" accept=".pdf" multiple className="hidden"
-        onChange={e => { if (e.target.files.length) { onFiles(Array.from(e.target.files)); e.target.value = '' } }} />
+    <div className={`border-2 border-dashed rounded-lg p-5 text-center transition-colors ${busy ? 'border-gray-200 bg-gray-50' : 'border-gray-300'}`}>
+      <input ref={refFiles} type="file" accept=".pdf" multiple className="hidden" onChange={handleChange} />
+      <input ref={refFolder} type="file" webkitdirectory="" className="hidden" onChange={handleChange} />
       {busy
         ? <div className="font-mono text-sm text-gray-400 animate-pulse">Analisi {loadingCount} file in corso…</div>
         : <>
             <div className="text-2xl mb-2">📄</div>
-            <div className="font-sans font-medium text-sm text-gray-700">{label}</div>
-            <div className="font-sans text-xs text-gray-400 mt-1">{hint}</div>
+            <div className="font-sans font-medium text-sm text-gray-700 mb-3">{label}</div>
+            <div className="flex gap-2 justify-center">
+              <button onClick={() => refFiles.current.click()}
+                className="font-mono text-xs px-3 py-1.5 rounded border border-gray-300 hover:border-accent hover:text-accent transition-colors">
+                Seleziona file
+              </button>
+              <button onClick={() => refFolder.current.click()}
+                className="font-mono text-xs px-3 py-1.5 rounded border border-gray-300 hover:border-accent hover:text-accent transition-colors">
+                Seleziona cartella
+              </button>
+            </div>
+            <div className="font-sans text-xs text-gray-400 mt-2">{hint}</div>
           </>
       }
     </div>
