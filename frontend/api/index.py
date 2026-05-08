@@ -187,19 +187,27 @@ Verifica la conformità di questo documento rispetto al bando. Rispondi SOLO con
 }}"""
 
     # Chiama Claude Haiku (veloce, sotto timeout Vercel)
+    import re
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=_clean(os.environ["ANTHROPIC_API_KEY"]))
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=1200,
-            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2000,
+            messages=[
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": "{"},
+            ],
         )
-        raw = msg.content[0].text
+        raw = "{" + msg.content[0].text
+        # pulizia: rimuovi eventuale markdown
+        raw = re.sub(r"```(?:json)?", "", raw).strip()
         start, end = raw.find("{"), raw.rfind("}") + 1
+        if start == -1 or end == 0:
+            raise json.JSONDecodeError("no json", raw, 0)
         analisi = json.loads(raw[start:end])
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=422, detail="Risposta AI non valida, riprova")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=422, detail=f"Risposta AI non parsabile: {str(e)[:120]}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errore analisi AI: {str(e)}")
 
